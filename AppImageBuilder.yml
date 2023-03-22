@@ -1,0 +1,62 @@
+# appimage-builder recipe see https://appimage-builder.readthedocs.io for details
+version: 1
+
+script:
+  # remove any existent binaries
+  - rm -r AppDir | true
+  
+  # compile and install binaries into AppDir
+  - cmake . -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr
+  - make install DESTDIR=AppDir
+  
+AppDir:
+  path: AppDir
+  
+  before_bundle:
+  # get DSView version
+  - echo "DS_VERSION_STRING=$($TARGET_APPDIR/usr/bin/DSView -v | cut -d ' ' -f 2)" >> $BUILDER_ENV
+  
+  app_info:
+    id: dsview
+    name: DSView
+    icon: dsview
+    version: '{{DS_VERSION_STRING}}'
+    exec: usr/bin/DSView
+    exec_args: $@
+    
+  apt:
+    arch: [ amd64 ]
+    sources:
+      - sourceline: 'deb [arch=amd64] http://archive.ubuntu.com/ubuntu/ focal main restricted universe multiverse'
+        key_url: 'http://keyserver.ubuntu.com/pks/lookup?op=get&search=0x3b4fe6acc0b21f32'
+    include:
+      - libpython3.8
+      - libqt5widgets5
+      - libqt5svg5
+      - libfftw3-3
+      - libusb-1.0-0
+      
+  files:
+    exclude:
+    - lib/udev
+    - usr/share/man
+    - usr/share/doc/*/README.*
+    - usr/share/doc/*/changelog.*
+    - usr/share/doc/*/NEWS.*
+    - usr/share/doc/*/TODO.*
+    
+  runtime:
+    env:
+      # Set python home
+      # See https://docs.python.org/3/using/cmdline.html#envvar-PYTHONHOME
+      PYTHONHOME: '${APPDIR}/usr'
+      # Path to the site-packages dir or other modules dirs
+      # See https://docs.python.org/3/using/cmdline.html#envvar-PYTHONPATH
+      PYTHONPATH: '${APPDIR}/usr/lib/python3.8/site-packages'
+  
+  after_bundle:
+    # get udev rule
+    - cp AppDir/usr/lib/udev/rules.d/60-dreamsourcelab.rules .
+      
+AppImage:
+  arch: x86_64
